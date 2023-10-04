@@ -13,19 +13,10 @@ from shapely.geometry import shape
 
 from openhexa.sdk import current_run, parameter, pipeline, workspace
 
-try:
-    from openhexa.toolbox.dhis2 import DHIS2
-except ModuleNotFoundError:
-    os.system('pip install openhexa.toolbox')
-    
-    from openhexa.toolbox.dhis2 import DHIS2
+from openhexa.toolbox.dhis2 import DHIS2
 
-try:
-    from epiweeks import Week, Year
-except ModuleNotFoundError:
-    os.system('pip install epiweeks')
+from epiweeks import Week, Year
 
-    from epiweeks import Week, Year
 
 @pipeline("cmr-dlmep-tdb", name="CMR DLMEP TdB")
 @parameter(
@@ -70,7 +61,11 @@ def dlmep_extract_process(get_year, get_upload, get_download, *args, **kwargs):
         dhis_download_complete = dhis2_download(RAW_DATA_DIR, get_year)
 
     # run processing code in notebook
-    params = {'ANNEE': get_year, 'UPLOAD': get_upload}
+    params = {
+        'ANNEE': get_year, 
+        'UPLOAD': get_upload, 
+        'DATA_OUTPUT_PATH': f"{DATA_DIR}outputs/MAPE_plus_alerts_V0.csv"
+    }
 
     if get_download:
         ppml = run_papermill_script(INPUT_NB, OUTPUT_NB_DIR, params, dhis_download_complete)
@@ -81,7 +76,7 @@ def dlmep_extract_process(get_year, get_upload, get_download, *args, **kwargs):
 def dhis2_download(output_dir, year, *args, **kwargs):
     
     # establish DHIS2 connection
-    connection = workspace.dhis2_connection('CMR_SNIS')
+    connection = workspace.dhis2_connection('cmr-snis')
     dhis2 = DHIS2(connection=connection, cache_dir = None) # f'{workspace.files_path}/temp/')
 
     current_run.log_info(f"Connected to {connection.url}")
@@ -121,7 +116,15 @@ def run_papermill_script(in_nb, out_nb_dir, parameters, *args, **kwargs):
     execution_timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H:%M:%S")
     out_nb = f"{out_nb_dir}{os.path.basename(in_nb)}_OUTPUT_{execution_timestamp}.ipynb"
 
-    return pm.execute_notebook(in_nb, out_nb, parameters)
+    if parameters['UPLOAD']:
+        pm.execute_notebook(in_nb, out_nb, parameters)
+        
+        current_run.log_info('Exporting dashboard data to CSV')
+        current_run.add_file_output(parameters['DATA_OUTPUT_PATH'])
+
+        return        
+    else:
+        return pm.execute_notebook(in_nb, out_nb, parameters)
 
 
 #### helper functions ####
