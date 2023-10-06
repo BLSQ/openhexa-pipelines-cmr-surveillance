@@ -75,6 +75,7 @@ import shutil
     "data_format",
     name="Dataframe format",
     choices=["Wide", "Long"],
+    default="Wide",
     type=str,
     required=True,
 )
@@ -116,7 +117,6 @@ def dhis2_reporting_rates(
     )
 
     write(df=df, output_dir=output_dir)
-    current_run.log_info("Pipeline finished successfully")
 
 
 @dhis2_reporting_rates.task
@@ -174,6 +174,7 @@ def download(
         org_units=org_units,
         org_unit_groups=org_unit_groups,
         org_unit_levels=org_unit_levels,
+        include_cocs=False,
     )
     current_run.log_info(f"Extracted {len(data_values)} data values")
 
@@ -306,6 +307,7 @@ def write(df: pl.DataFrame, output_dir: str = None):
     fp = os.path.join(output_dir, "reporting_rates.csv")
     df.write_csv(fp)
     current_run.add_file_output(fp)
+    current_run.log_info("Pipeline finished successfully")
     return
 
 
